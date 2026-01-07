@@ -1,0 +1,46 @@
+// Prisma Schema za Traffic Problems App
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Korisnici
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relacija sa problemima
+  problems      Problem[]
+}
+
+// Saobraćajni problemi
+model Problem {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  problemType       String
+  latitude          Float
+  longitude         Float
+  proposedSolution  String?
+  priority          String   @default("srednji")
+  status            String   @default("prijavljeno")
+  imageUrl          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relacija sa korisnikom
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+}
