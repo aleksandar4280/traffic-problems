@@ -1,112 +1,74 @@
-// API ruta za sve probleme (GET sve probleme, POST novi problem)
+// FILE: src/app/api/problems/route.js
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+export const runtime = "nodejs";
 
-// GET - Preuzmi sve probleme
-export async function GET(request) {
+function badRequest(message) {
+  return NextResponse.json({ error: message }, { status: 400 });
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Morate biti ulogovani' },
-        { status: 401 }
-      );
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Morate biti ulogovani" }, { status: 401 });
     }
 
     const problems = await prisma.problem.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      where: { user: { email: session.user.email } },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(problems);
-
-  } catch (error) {
-    console.error('Greška pri preuzimanju problema:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error("GET /api/problems error:", e);
+    return NextResponse.json({ error: "Došlo je do greške" }, { status: 500 });
   }
 }
 
-// POST - Kreiraj novi problem
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Morate biti ulogovani' },
-        { status: 401 }
-      );
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Morate biti ulogovani" }, { status: 401 });
     }
 
-    const data = await request.json();
+    const body = await request.json();
 
-    // Validacija obaveznih polja
-    if (!data.title || !data.problemType || !data.latitude || !data.longitude) {
-      return NextResponse.json(
-        { error: 'Naslov, tip problema i lokacija su obavezni' },
-        { status: 400 }
-      );
+    const title = (body.title ?? "").trim();
+    const problemType = (body.problemType ?? "").trim();
+    const latitude = Number(body.latitude);
+    const longitude = Number(body.longitude);
+
+    if (!title) return badRequest("Naslov je obavezan");
+    if (!problemType) return badRequest("Tip problema je obavezan");
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return badRequest("Lokacija (latitude/longitude) nije validna");
     }
 
-    // Pronađi korisnika
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
+    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!user) return NextResponse.json({ error: "Korisnik nije pronađen" }, { status: 404 });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Korisnik nije pronađen' },
-        { status: 404 }
-      );
-    }
-
-    // Kreiraj problem
-    const problem = await prisma.problem.create({
+    const created = await prisma.problem.create({
       data: {
-        title: data.title,
-        description: data.description || null,
-        problemType: data.problemType,
-        latitude: parseFloat(data.latitude),
-        longitude: parseFloat(data.longitude),
-        proposedSolution: data.proposedSolution || null,
-        priority: data.priority || 'srednji',
-        status: 'prijavljeno',
-        imageUrl: data.imageUrl || null,
+        title,
+        description: body.description?.trim() || null,
+        problemType,
+        latitude,
+        longitude,
+        proposedSolution: body.proposedSolution?.trim() || null,
+        priority: body.priority || "srednji",
+        status: body.status || "prijavljeno",
+        imageUrl: body.imageUrl?.trim() || null,
         userId: user.id,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
-        }
-      }
     });
 
-    return NextResponse.json(problem, { status: 201 });
-
-  } catch (error) {
-    console.error('Greška pri kreiranju problema:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške pri kreiranju problema' },
-      { status: 500 }
-    );
+    return NextResponse.json(created, { status: 201 });
+  } catch (e) {
+    console.error("POST /api/problems error:", e);
+    return NextResponse.json({ error: "Došlo je do greške pri kreiranju problema" }, { status: 500 });
   }
 }

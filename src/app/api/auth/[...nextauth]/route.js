@@ -1,8 +1,4 @@
-// NextAuth API Route
-
-import NextAuth from 'next-auth';
-import { authOptions } from '@/lib/auth';
-
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+// FILE: src/app/api/auth/[...nextauth]/route.js
+import { handlers } from "@/auth";
+export const runtime = "nodejs";
+export const { GET, POST } = handlers;

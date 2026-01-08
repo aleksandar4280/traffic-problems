@@ -1,58 +1,61 @@
-// API ruta za registraciju korisnika
+// FILE: src/app/api/auth/register/route.js
+import { NextResponse } from "next/server";
+import { hash } from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
-import { NextResponse } from 'next/server';
-import { hash } from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+export const runtime = "nodejs";
+
+function json(status, body) {
+  return NextResponse.json(body, { status });
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
 
 export async function POST(request) {
   try {
-    const { email, password, name } = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body) return json(400, { error: "Neispravan JSON body." });
 
-    // Validacija
+    const email = normalizeEmail(body.email);
+    const password = String(body.password || "");
+    const name = body.name ? String(body.name).trim() : null;
+
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email i lozinka su obavezni' },
-        { status: 400 }
-      );
+      return json(400, { error: "Email i lozinka su obavezni." });
+    }
+    if (!email.includes("@")) {
+      return json(400, { error: "Email nije validan." });
+    }
+    if (password.length < 6) {
+      return json(400, { error: "Lozinka mora imati najmanje 6 karaktera." });
     }
 
-    // Proveri da li korisnik već postoji
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
-
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'Korisnik sa ovim email-om već postoji' },
-        { status: 400 }
-      );
+      return json(400, { error: "Korisnik sa ovim email-om već postoji." });
     }
 
-    // Hash lozinke
     const hashedPassword = await hash(password, 12);
 
-    // Kreiraj korisnika
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        name: name || null,
+        name,
       },
+      select: { id: true, email: true, name: true },
     });
 
-    return NextResponse.json(
-      { 
-        message: 'Korisnik uspešno kreiran',
-        user: { id: user.id, email: user.email, name: user.name }
-      },
-      { status: 201 }
-    );
-
+    return json(201, { message: "Korisnik uspešno kreiran", user });
   } catch (error) {
-    console.error('Greška pri registraciji:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške pri registraciji' },
-      { status: 500 }
-    );
+    console.error("Greška pri registraciji:", error);
+    const isDev = process.env.NODE_ENV !== "production";
+
+    return json(500, {
+      error: "Došlo je do greške pri registraciji.",
+      ...(isDev ? { details: String(error?.message || error) } : {}),
+    });
   }
 }

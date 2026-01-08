@@ -1,180 +1,85 @@
-// API ruta za pojedinačni problem (GET, PUT, DELETE)
+// FILE: src/app/api/problems/[id]/route.js
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+export const runtime = "nodejs";
 
-// GET - Preuzmi jedan problem
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Morate biti ulogovani' },
-        { status: 401 }
-      );
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Morate biti ulogovani" }, { status: 401 });
     }
 
-    const problem = await prisma.problem.findUnique({
+    const problem = await prisma.problem.findFirst({
       where: {
-        id: params.id
+        id: params.id,
+        user: { email: session.user.email },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
-        }
-      }
     });
 
-    if (!problem) {
-      return NextResponse.json(
-        { error: 'Problem nije pronađen' },
-        { status: 404 }
-      );
-    }
-
+    if (!problem) return NextResponse.json({ error: "Problem nije pronađen" }, { status: 404 });
     return NextResponse.json(problem);
-
-  } catch (error) {
-    console.error('Greška pri preuzimanju problema:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error("GET /api/problems/[id] error:", e);
+    return NextResponse.json({ error: "Došlo je do greške" }, { status: 500 });
   }
 }
 
-// PUT - Ažuriraj problem
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Morate biti ulogovani' },
-        { status: 401 }
-      );
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Morate biti ulogovani" }, { status: 401 });
     }
 
-    const data = await request.json();
+    const body = await request.json();
 
-    // Pronađi korisnika
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const existing = await prisma.problem.findFirst({
+      where: { id: params.id, user: { email: session.user.email } },
     });
+    if (!existing) return NextResponse.json({ error: "Problem nije pronađen" }, { status: 404 });
 
-    // Proveri da li problem postoji i da li pripada korisniku
-    const existingProblem = await prisma.problem.findUnique({
-      where: { id: params.id }
-    });
-
-    if (!existingProblem) {
-      return NextResponse.json(
-        { error: 'Problem nije pronađen' },
-        { status: 404 }
-      );
-    }
-
-    if (existingProblem.userId !== user.id) {
-      return NextResponse.json(
-        { error: 'Nemate dozvolu da ažurirate ovaj problem' },
-        { status: 403 }
-      );
-    }
-
-    // Ažuriraj problem
-    const updatedProblem = await prisma.problem.update({
-      where: {
-        id: params.id
-      },
+    const updated = await prisma.problem.update({
+      where: { id: params.id },
       data: {
-        title: data.title,
-        description: data.description,
-        problemType: data.problemType,
-        proposedSolution: data.proposedSolution,
-        priority: data.priority,
-        status: data.status,
-        imageUrl: data.imageUrl,
+        title: typeof body.title === "string" ? body.title.trim() : existing.title,
+        description: typeof body.description === "string" ? body.description.trim() : existing.description,
+        problemType: typeof body.problemType === "string" ? body.problemType.trim() : existing.problemType,
+        proposedSolution:
+          typeof body.proposedSolution === "string" ? body.proposedSolution.trim() : existing.proposedSolution,
+        priority: body.priority ?? existing.priority,
+        status: body.status ?? existing.status,
+        imageUrl: typeof body.imageUrl === "string" ? body.imageUrl.trim() : existing.imageUrl,
+        latitude: Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : existing.latitude,
+        longitude: Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : existing.longitude,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          }
-        }
-      }
     });
 
-    return NextResponse.json(updatedProblem);
-
-  } catch (error) {
-    console.error('Greška pri ažuriranju problema:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške pri ažuriranju' },
-      { status: 500 }
-    );
+    return NextResponse.json(updated);
+  } catch (e) {
+    console.error("PUT /api/problems/[id] error:", e);
+    return NextResponse.json({ error: "Došlo je do greške" }, { status: 500 });
   }
 }
 
-// DELETE - Obriši problem
-export async function DELETE(request, { params }) {
+export async function DELETE(_request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Morate biti ulogovani' },
-        { status: 401 }
-      );
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Morate biti ulogovani" }, { status: 401 });
     }
 
-    // Pronađi korisnika
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const existing = await prisma.problem.findFirst({
+      where: { id: params.id, user: { email: session.user.email } },
     });
+    if (!existing) return NextResponse.json({ error: "Problem nije pronađen" }, { status: 404 });
 
-    // Proveri da li problem postoji i da li pripada korisniku
-    const existingProblem = await prisma.problem.findUnique({
-      where: { id: params.id }
-    });
-
-    if (!existingProblem) {
-      return NextResponse.json(
-        { error: 'Problem nije pronađen' },
-        { status: 404 }
-      );
-    }
-
-    if (existingProblem.userId !== user.id) {
-      return NextResponse.json(
-        { error: 'Nemate dozvolu da obrišete ovaj problem' },
-        { status: 403 }
-      );
-    }
-
-    // Obriši problem
-    await prisma.problem.delete({
-      where: {
-        id: params.id
-      }
-    });
-
-    return NextResponse.json(
-      { message: 'Problem uspešno obrisan' },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error('Greška pri brisanju problema:', error);
-    return NextResponse.json(
-      { error: 'Došlo je do greške pri brisanju' },
-      { status: 500 }
-    );
+    await prisma.problem.delete({ where: { id: params.id } });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("DELETE /api/problems/[id] error:", e);
+    return NextResponse.json({ error: "Došlo je do greške" }, { status: 500 });
   }
 }
