@@ -1,42 +1,83 @@
-// ProblemForm komponenta - Forma za dodavanje/izmenu problema
-
+// FILE: src/components/ProblemForm.js
 'use client';
 
-import { useState, useEffect } from 'react';
-import { PROBLEM_TYPES_ARRAY, PRIORITIES_ARRAY, STATUSES_ARRAY, STATUS_LABELS, PRIORITY_LABELS } from '@/utils/constants';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  PRIORITIES_ARRAY,
+  PRIORITY_LABELS,
+  PROBLEM_TYPES_ARRAY,
+  STATUSES_ARRAY,
+  STATUS_LABELS,
+} from '@/utils/constants';
 
-export default function ProblemForm({ 
-  onSubmit, 
-  onCancel, 
-  initialData = null,
-  selectedLocation = null 
+const EMPTY_FORM = {
+  title: '',
+  description: '',
+  problemType: PROBLEM_TYPES_ARRAY[0] || 'Ostalo',
+  latitude: '',
+  longitude: '',
+  proposedSolution: '',
+  priority: 'srednji',
+  status: 'prijavljeno',
+  imageUrl: '',
+};
+
+function normalizeInitialData(initialData) {
+  if (!initialData) return { ...EMPTY_FORM };
+
+  return {
+    ...EMPTY_FORM,
+    ...initialData,
+    title: typeof initialData.title === 'string' ? initialData.title : '',
+    description: initialData.description ?? '',
+    problemType: initialData.problemType ?? (PROBLEM_TYPES_ARRAY[0] || 'Ostalo'),
+    latitude:
+      initialData.latitude === null || initialData.latitude === undefined
+        ? ''
+        : String(initialData.latitude),
+    longitude:
+      initialData.longitude === null || initialData.longitude === undefined
+        ? ''
+        : String(initialData.longitude),
+    proposedSolution: initialData.proposedSolution ?? '',
+    priority: initialData.priority ?? 'srednji',
+    status: initialData.status ?? 'prijavljeno',
+    imageUrl: initialData.imageUrl ?? '',
+  };
+}
+
+export default function ProblemForm({
+  onSubmit,
+  onCancel,
+  selectedLocation,
+  initialData,
 }) {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    problemType: PROBLEM_TYPES_ARRAY[0],
-    latitude: '',
-    longitude: '',
-    proposedSolution: '',
-    priority: 'srednji',
-    status: 'prijavljeno',
-    imageUrl: '',
-  });
+  const [formData, setFormData] = useState(() => ({ ...EMPTY_FORM }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Postavi lokaciju ili postojeće podatke
+  const normalizedInitial = useMemo(
+    () => normalizeInitialData(initialData),
+    [initialData]
+  );
+
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
-    } else if (selectedLocation) {
-      setFormData(prev => ({
-        ...prev,
+      setFormData(normalizedInitial);
+      return;
+    }
+
+    if (selectedLocation) {
+      setFormData({
+        ...EMPTY_FORM,
         latitude: selectedLocation.lat.toFixed(6),
         longitude: selectedLocation.lng.toFixed(6),
-      }));
+      });
+      return;
     }
-  }, [initialData, selectedLocation]);
+
+    setFormData({ ...EMPTY_FORM });
+  }, [initialData, normalizedInitial, selectedLocation]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,19 +85,27 @@ export default function ProblemForm({
     setLoading(true);
 
     try {
-      await onSubmit(formData);
+      await onSubmit({
+        ...formData,
+        // osiguraj da nikad ne šalješ null (backend može da radi sa "" i da mapira u null)
+        description: formData.description ?? '',
+        proposedSolution: formData.proposedSolution ?? '',
+        imageUrl: formData.imageUrl ?? '',
+      });
     } catch (err) {
-      setError(err.message || 'Došlo je do greške');
+      setError(err?.message || 'Došlo je do greške');
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value ?? '',
+    }));
   };
 
   return (
@@ -74,28 +123,41 @@ export default function ProblemForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Naslov *
+            Naslov
           </label>
           <input
             type="text"
             name="title"
-            value={formData.title}
+            value={formData.title ?? ''}
             onChange={handleChange}
-            required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Kratak opis problema"
+            placeholder="Kratak opis problema..."
+            required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tip problema *
+            Opis
+          </label>
+          <textarea
+            name="description"
+            value={formData.description ?? ""}
+            onChange={handleChange}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Detaljniji opis problema..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tip problema
           </label>
           <select
             name="problemType"
-            value={formData.problemType}
+            value={formData.problemType ?? (PROBLEM_TYPES_ARRAY[0] || 'Ostalo')}
             onChange={handleChange}
-            required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {PROBLEM_TYPES_ARRAY.map((type) => (
@@ -106,63 +168,49 @@ export default function ProblemForm({
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Opis
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Detaljniji opis problema..."
-          />
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Latitude *
+              Latitude
             </label>
             <input
               type="number"
-              step="any"
+              step="0.000001"
               name="latitude"
-              value={formData.latitude}
+              value={formData.latitude ?? ''}
               onChange={handleChange}
-              required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Longitude *
+              Longitude
             </label>
             <input
               type="number"
-              step="any"
+              step="0.000001"
               name="longitude"
-              value={formData.longitude}
+              value={formData.longitude ?? ''}
               onChange={handleChange}
-              required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
             />
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Predloženo rešenje
+            Predlog rešenja (opciono)
           </label>
           <textarea
             name="proposedSolution"
-            value={formData.proposedSolution}
+            value={formData.proposedSolution ?? ""}
             onChange={handleChange}
             rows={2}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Kako rešiti ovaj problem..."
+            placeholder="Kako bi se problem mogao rešiti..."
           />
         </div>
 
@@ -173,13 +221,13 @@ export default function ProblemForm({
             </label>
             <select
               name="priority"
-              value={formData.priority}
+              value={formData.priority ?? 'srednji'}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {PRIORITIES_ARRAY.map((priority) => (
-                <option key={priority} value={priority}>
-                  {PRIORITY_LABELS[priority]}
+              {PRIORITIES_ARRAY.map((p) => (
+                <option key={p} value={p}>
+                  {PRIORITY_LABELS[p]}
                 </option>
               ))}
             </select>
@@ -191,13 +239,13 @@ export default function ProblemForm({
             </label>
             <select
               name="status"
-              value={formData.status}
+              value={formData.status ?? 'prijavljeno'}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {STATUSES_ARRAY.map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
+              {STATUSES_ARRAY.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
                 </option>
               ))}
             </select>
@@ -211,7 +259,7 @@ export default function ProblemForm({
           <input
             type="url"
             name="imageUrl"
-            value={formData.imageUrl}
+            value={formData.imageUrl ?? ""}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="https://example.com/slika.jpg"
@@ -224,12 +272,14 @@ export default function ProblemForm({
             disabled={loading}
             className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition disabled:bg-blue-300"
           >
-            {loading ? 'Čuvanje...' : initialData ? 'Sačuvaj izmene' : 'Dodaj problem'}
+            {loading ? 'Čuvanje...' : 'Sačuvaj'}
           </button>
+
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition"
+            disabled={loading}
+            className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300 transition disabled:bg-gray-100"
           >
             Otkaži
           </button>

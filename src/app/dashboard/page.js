@@ -81,9 +81,14 @@ export default function DashboardPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Greška pri čuvanju');
-      }
+  const contentType = res.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await res.json().catch(() => ({}))
+    : { error: await res.text().catch(() => "") };
+
+  throw new Error(payload.details || payload.error || `HTTP ${res.status}`);
+}
+
 
       await fetchProblems();
       setShowForm(false);
