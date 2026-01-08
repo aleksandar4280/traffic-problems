@@ -8,6 +8,7 @@ import { MARKER_COLORS, STATUS_LABELS, PRIORITY_LABELS } from '@/utils/constants
 export default function ProblemList({ problems = [], onProblemClick, onEditProblem, onDeleteProblem, onStatusFilterChange }) {
   const [filter, setFilter] = useState('svi');
   const [searchTerm, setSearchTerm] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Filtriranje problema
   const filteredProblems = useMemo(() => {
@@ -35,6 +36,46 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
     prijavljeno: problems.filter(p => p.status === 'prijavljeno').length,
     reseno: problems.filter(p => p.status === 'reseno').length,
   };
+
+  async function handleGenerateReport() {
+  try {
+    setReportLoading(true);
+
+    const qs = filter && filter !== "svi" ? `?status=${encodeURIComponent(filter)}` : "";
+    const resp = await fetch(`/api/reports/problems${qs}`);
+
+    if (!resp.ok) {
+      const ct = resp.headers.get("content-type") || "";
+      const payload = ct.includes("application/json")
+        ? await resp.json().catch(() => ({}))
+        : { error: await resp.text().catch(() => "") };
+
+      throw new Error(payload.details || payload.error || `HTTP ${resp.status}`);
+    }
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+      now.getDate()
+    ).padStart(2, "0")}`;
+
+    const name = `izvestaj_${filter || "svi"}_${dateStr}.pdf`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e?.message || "Ne mogu da generišem izveštaj.");
+  } finally {
+    setReportLoading(false);
+  }
+}
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 h-full flex flex-col">
@@ -69,41 +110,56 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
         className="w-full px-3 py-2 border border-gray-300 rounded-md mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 
-      {/* Filter */}
-      <div className="flex space-x-2 mb-4">
-        <button
-          onClick={() => applyFilter('svi')}
-          className={`px-3 py-1 rounded text-sm ${
-            filter === 'svi' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-          }`}
-        >
-          Svi
-        </button>
-        <button
-          onClick={() => applyFilter('primeceno')}
-          className={`px-3 py-1 rounded text-sm ${
-            filter === 'primeceno' ? 'bg-red-600 text-white' : 'bg-gray-200'
-          }`}
-        >
-          Primećeno
-        </button>
-        <button
-          onClick={() => applyFilter('prijavljeno')}
-          className={`px-3 py-1 rounded text-sm ${
-            filter === 'prijavljeno' ? 'bg-orange-600 text-white' : 'bg-gray-200'
-          }`}
-        >
-          Prijavljeno
-        </button>
-        <button
-          onClick={() => applyFilter('reseno')}
-          className={`px-3 py-1 rounded text-sm ${
-            filter === 'reseno' ? 'bg-green-600 text-white' : 'bg-gray-200'
-          }`}
-        >
-          Rešeno
-        </button>
-      </div>
+      {/* Filter + Izvestaj */}
+      <div className="mb-4 space-y-3">
+  {/* Filter dugmad */}
+  <div className="flex flex-wrap gap-2">
+    <button
+      onClick={() => applyFilter("svi")}
+      className={`px-3 py-1 rounded text-sm ${
+        filter === "svi" ? "bg-blue-600 text-white" : "bg-gray-200"
+      }`}
+    >
+      Svi
+    </button>
+
+    <button
+      onClick={() => applyFilter("primeceno")}
+      className={`px-3 py-1 rounded text-sm ${
+        filter === "primeceno" ? "bg-orange-600 text-white" : "bg-gray-200"
+      }`}
+    >
+      Primećeno
+    </button>
+
+    <button
+      onClick={() => applyFilter("prijavljeno")}
+      className={`px-3 py-1 rounded text-sm ${
+        filter === "prijavljeno" ? "bg-red-600 text-white" : "bg-gray-200"
+      }`}
+    >
+      Prijavljeno
+    </button>
+
+    <button
+      onClick={() => applyFilter("reseno")}
+      className={`px-3 py-1 rounded text-sm ${
+        filter === "reseno" ? "bg-green-600 text-white" : "bg-gray-200"
+      }`}
+    >
+      Rešeno
+    </button>
+  </div>
+
+  {/* Dugme ispod filtera */}
+  <button
+    onClick={handleGenerateReport}
+    disabled={reportLoading}
+    className="w-full px-3 py-2 rounded-md text-sm font-medium bg-black text-white disabled:opacity-60"
+  >
+    {reportLoading ? "Generišem..." : "Generiši izveštaj"}
+  </button>
+</div>
 
       {/* Lista */}
       <div className="flex-1 overflow-y-auto space-y-2">

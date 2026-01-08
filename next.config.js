@@ -1,0 +1,7 @@
+// FILE: next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  serverExternalPackages: ["pdfkit"],
+};
+
+module.exports = nextConfig;
