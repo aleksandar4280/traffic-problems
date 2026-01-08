@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [editingProblem, setEditingProblem] = useState(null);
   const [selectedProblem, setSelectedProblem] = useState(null);
+  const [mapStatusFilter, setMapStatusFilter] = useState("svi");
 
   // Zaštita rute - samo ulogovani korisnici
   useEffect(() => {
@@ -43,6 +44,13 @@ export default function DashboardPage() {
       fetchProblems();
     }
   }, [session]);
+
+  const mapProblems = useMemo(() => {
+    // eslint-disable-next-line no-undef
+    if (!Array.isArray(problems)) return [];
+    if (mapStatusFilter === "svi") return problems;
+    return problems.filter((p) => p.status === mapStatusFilter);
+  }, [mapStatusFilter, problems]);
 
   const fetchProblems = async () => {
     try {
@@ -142,7 +150,7 @@ export default function DashboardPage() {
         {/* Mapa */}
         <div className="flex-1 relative">
           <Map
-            problems={problems}
+            problems={mapProblems}
             onAddMarker={handleAddMarker}
             onMarkerClick={handleMarkerClick}
           />
@@ -176,6 +184,7 @@ export default function DashboardPage() {
             onProblemClick={handleMarkerClick}
             onEditProblem={handleEditProblem}
             onDeleteProblem={handleDeleteProblem}
+            onStatusFilterChange={setMapStatusFilter}
           />
         </div>
       </div>

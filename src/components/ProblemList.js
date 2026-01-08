@@ -2,21 +2,31 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MARKER_COLORS, STATUS_LABELS, PRIORITY_LABELS } from '@/utils/constants';
 
-export default function ProblemList({ problems = [], onProblemClick, onEditProblem, onDeleteProblem }) {
+export default function ProblemList({ problems = [], onProblemClick, onEditProblem, onDeleteProblem, onStatusFilterChange }) {
   const [filter, setFilter] = useState('svi');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filtriranje problema
-  const filteredProblems = problems.filter(problem => {
-    const matchesFilter = filter === 'svi' || problem.status === filter;
-    const matchesSearch = 
-      problem.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      problem.problemType.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const filteredProblems = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return problems.filter((problem) => {
+      const matchesFilter = filter === "svi" || problem.status === filter;
+      const matchesSearch =
+        (problem.title || "").toLowerCase().includes(term) ||
+        (problem.description || "").toLowerCase().includes(term) ||
+        (problem.problemType || "").toLowerCase().includes(term);
+
+      return matchesFilter && matchesSearch;
+    });
+  }, [problems, filter, searchTerm]);
+
+  function applyFilter(next) {
+    setFilter(next);
+    onStatusFilterChange?.(next); // ✅ sync with map
+  }
 
   // Statistika
   const stats = {
@@ -62,7 +72,7 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
       {/* Filter */}
       <div className="flex space-x-2 mb-4">
         <button
-          onClick={() => setFilter('svi')}
+          onClick={() => applyFilter('svi')}
           className={`px-3 py-1 rounded text-sm ${
             filter === 'svi' ? 'bg-blue-600 text-white' : 'bg-gray-200'
           }`}
@@ -70,7 +80,7 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
           Svi
         </button>
         <button
-          onClick={() => setFilter('primeceno')}
+          onClick={() => applyFilter('primeceno')}
           className={`px-3 py-1 rounded text-sm ${
             filter === 'primeceno' ? 'bg-red-600 text-white' : 'bg-gray-200'
           }`}
@@ -78,7 +88,7 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
           Primećeno
         </button>
         <button
-          onClick={() => setFilter('prijavljeno')}
+          onClick={() => applyFilter('prijavljeno')}
           className={`px-3 py-1 rounded text-sm ${
             filter === 'prijavljeno' ? 'bg-orange-600 text-white' : 'bg-gray-200'
           }`}
@@ -86,7 +96,7 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
           Prijavljeno
         </button>
         <button
-          onClick={() => setFilter('reseno')}
+          onClick={() => applyFilter('reseno')}
           className={`px-3 py-1 rounded text-sm ${
             filter === 'reseno' ? 'bg-green-600 text-white' : 'bg-gray-200'
           }`}
