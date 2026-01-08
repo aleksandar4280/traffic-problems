@@ -21,8 +21,8 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
   // Statistika
   const stats = {
     total: problems.length,
+    primeceno: problems.filter(p => p.status === 'primeceno').length,
     prijavljeno: problems.filter(p => p.status === 'prijavljeno').length,
-    u_radu: problems.filter(p => p.status === 'u_radu').length,
     reseno: problems.filter(p => p.status === 'reseno').length,
   };
 
@@ -37,12 +37,12 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
           <div className="text-xs text-gray-600">Ukupno</div>
         </div>
         <div className="bg-red-100 p-2 rounded text-center">
-          <div className="text-2xl font-bold">{stats.prijavljeno}</div>
-          <div className="text-xs text-gray-600">Prijavljeno</div>
+          <div className="text-2xl font-bold">{stats.primeceno}</div>
+          <div className="text-xs text-gray-600">Primećeno</div>
         </div>
         <div className="bg-orange-100 p-2 rounded text-center">
-          <div className="text-2xl font-bold">{stats.u_radu}</div>
-          <div className="text-xs text-gray-600">U radu</div>
+          <div className="text-2xl font-bold">{stats.prijavljeno}</div>
+          <div className="text-xs text-gray-600">Prijavljeno</div>
         </div>
         <div className="bg-green-100 p-2 rounded text-center">
           <div className="text-2xl font-bold">{stats.reseno}</div>
@@ -70,20 +70,20 @@ export default function ProblemList({ problems = [], onProblemClick, onEditProbl
           Svi
         </button>
         <button
+          onClick={() => setFilter('primeceno')}
+          className={`px-3 py-1 rounded text-sm ${
+            filter === 'primeceno' ? 'bg-red-600 text-white' : 'bg-gray-200'
+          }`}
+        >
+          Primećeno
+        </button>
+        <button
           onClick={() => setFilter('prijavljeno')}
           className={`px-3 py-1 rounded text-sm ${
-            filter === 'prijavljeno' ? 'bg-red-600 text-white' : 'bg-gray-200'
+            filter === 'prijavljeno' ? 'bg-orange-600 text-white' : 'bg-gray-200'
           }`}
         >
           Prijavljeno
-        </button>
-        <button
-          onClick={() => setFilter('u_radu')}
-          className={`px-3 py-1 rounded text-sm ${
-            filter === 'u_radu' ? 'bg-orange-600 text-white' : 'bg-gray-200'
-          }`}
-        >
-          U radu
         </button>
         <button
           onClick={() => setFilter('reseno')}

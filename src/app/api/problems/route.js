@@ -60,7 +60,7 @@ export async function POST(request) {
         longitude,
         proposedSolution: body.proposedSolution?.trim() || null,
         priority: body.priority || "srednji",
-        status: body.status || "prijavljeno",
+        status: body.status || "primeceno",
         imageUrl: body.imageUrl?.trim() || null,
         userId: user.id,
       },

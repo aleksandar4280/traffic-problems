@@ -165,9 +165,7 @@ export default function DashboardPage() {
 
           {/* Instrukcije */}
           <div className="absolute top-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[500]">
-            <p className="text-sm font-semibold text-gray-700">
-              Klikni na mapu da dodaš novi problem
-            </p>
+            
           </div>
         </div>
 

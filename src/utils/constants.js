@@ -1,9 +1,9 @@
 // FILE: src/utils/constants.js
-export const STATUSES_ARRAY = ["prijavljeno", "u_radu", "reseno"];
+export const STATUSES_ARRAY = ["primeceno", "prijavljeno", "reseno"];
 
 export const STATUS_LABELS = {
+  primeceno: "Primećeno",
   prijavljeno: "Prijavljeno",
-  u_radu: "U radu",
   reseno: "Rešeno",
 };
 
@@ -26,7 +26,7 @@ export const PROBLEM_TYPES_ARRAY = [
 ];
 
 export const MARKER_COLORS = {
-  prijavljeno: "#ef4444",
-  u_radu: "#f59e0b",
+  prijavljeno: "#f59e0b",   
+  primeceno: "#ef4444",
   reseno: "#22c55e",
 };
